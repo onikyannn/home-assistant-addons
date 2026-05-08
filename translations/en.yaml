@@ -1,0 +1,4 @@
+configuration:
+  config_url:
+    name: Config URL
+    description: URL to remote sing-box config.json

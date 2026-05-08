@@ -1,0 +1,38 @@
+#!/usr/bin/with-contenv sh
+
+set -e
+
+CONFIG_DIR="/data/config"
+STATE_DIR="/data/state"
+OPTIONS_FILE="/data/options.json"
+
+mkdir -p "$CONFIG_DIR" "$STATE_DIR"
+
+CONFIG_URL="$(jq -er '.config_url // empty' "$OPTIONS_FILE")" || {
+    echo "[ERROR] config_url is empty"
+    exit 1
+}
+
+if [ -z "$CONFIG_URL" ]; then
+    echo "[ERROR] config_url is empty"
+    exit 1
+fi
+
+echo "[INFO] Downloading sing-box config"
+
+TMP_CONFIG="${CONFIG_DIR}/config.json.tmp"
+trap 'rm -f "$TMP_CONFIG"' EXIT
+
+curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 60 "$CONFIG_URL" -o "$TMP_CONFIG"
+
+sing-box check -c "$TMP_CONFIG"
+
+mv "$TMP_CONFIG" "$CONFIG_DIR/config.json"
+trap - EXIT
+
+echo "[INFO] Starting sing-box"
+
+exec sing-box \
+    -D "$STATE_DIR" \
+    -C "$CONFIG_DIR" \
+    run 2>&1

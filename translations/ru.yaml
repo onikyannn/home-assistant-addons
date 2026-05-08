@@ -1,0 +1,4 @@
+configuration:
+  config_url:
+    name: Конфиг
+    description: Ссылка на конфигурацию

@@ -1,0 +1,28 @@
+name: sing-box
+version: "1.0.0"
+slug: sing-box
+description: sing-box proxy service
+url: https://github.com/SagerNet/sing-box
+
+arch:
+  - aarch64
+  - amd64
+
+startup: services
+boot: auto
+host_network: true
+init: false
+
+panel_icon: mdi:shield-outline
+
+devices:
+  - /dev/net/tun
+
+privileged:
+  - NET_ADMIN
+
+options:
+  config_url: null
+
+schema:
+  config_url: url
