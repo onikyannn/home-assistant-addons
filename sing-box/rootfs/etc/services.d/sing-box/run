@@ -5,6 +5,7 @@ set -e
 CONFIG_DIR="/data/config"
 STATE_DIR="/data/state"
 OPTIONS_FILE="/data/options.json"
+CONFIG_FILE="${CONFIG_DIR}/config.json"
 
 mkdir -p "$CONFIG_DIR" "$STATE_DIR"
 
@@ -18,17 +19,35 @@ if [ -z "$CONFIG_URL" ]; then
     exit 1
 fi
 
+use_cached_config() {
+    reason="$1"
+
+    if [ -s "$CONFIG_FILE" ]; then
+        echo "[WARN] ${reason}; using cached config"
+        return 0
+    fi
+
+    echo "[ERROR] ${reason} and no cached config is available"
+    exit 1
+}
+
 echo "[INFO] Downloading sing-box config"
 
-TMP_CONFIG="${CONFIG_DIR}/config.json.tmp"
+TMP_CONFIG="${CONFIG_FILE}.tmp"
 trap 'rm -f "$TMP_CONFIG"' EXIT
 
-curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 60 "$CONFIG_URL" -o "$TMP_CONFIG"
-
-sing-box check -c "$TMP_CONFIG"
-
-mv "$TMP_CONFIG" "$CONFIG_DIR/config.json"
-trap - EXIT
+if curl -fsSL --retry 3 --retry-delay 2 --retry-connrefused --connect-timeout 10 --max-time 60 "$CONFIG_URL" -o "$TMP_CONFIG"; then
+    if sing-box check -c "$TMP_CONFIG"; then
+        mv "$TMP_CONFIG" "$CONFIG_FILE"
+        echo "[INFO] Downloaded config saved"
+    else
+        rm -f "$TMP_CONFIG"
+        use_cached_config "Downloaded config failed validation"
+    fi
+else
+    rm -f "$TMP_CONFIG"
+    use_cached_config "Unable to download config after retries"
+fi
 
 echo "[INFO] Starting sing-box"
 
