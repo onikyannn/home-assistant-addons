@@ -2,3 +2,9 @@ configuration:
   config_url:
     name: Config URL
     description: URL to remote sing-box config.json
+  config_username:
+    name: Username
+    description: Username for HTTP Basic Authentication (optional)
+  config_password:
+    name: Password
+    description: Password for HTTP Basic Authentication (optional)

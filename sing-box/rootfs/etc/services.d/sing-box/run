@@ -2,9 +2,9 @@
 
 set -e
 
-CONFIG_DIR="/data/config"
-STATE_DIR="/data/state"
-OPTIONS_FILE="/data/options.json"
+CONFIG_DIR="${CONFIG_DIR:-/data/config}"
+STATE_DIR="${STATE_DIR:-/data/state}"
+OPTIONS_FILE="${OPTIONS_FILE:-/data/options.json}"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
 
 mkdir -p "$CONFIG_DIR" "$STATE_DIR"
@@ -16,6 +16,15 @@ CONFIG_URL="$(jq -er '.config_url // empty' "$OPTIONS_FILE")" || {
 
 if [ -z "$CONFIG_URL" ]; then
     echo "[ERROR] config_url is empty"
+    exit 1
+fi
+
+CONFIG_USERNAME="$(jq -r '.config_username // empty' "$OPTIONS_FILE")"
+CONFIG_PASSWORD="$(jq -r '.config_password // empty' "$OPTIONS_FILE")"
+
+if { [ -n "$CONFIG_USERNAME" ] && [ -z "$CONFIG_PASSWORD" ]; } || \
+    { [ -z "$CONFIG_USERNAME" ] && [ -n "$CONFIG_PASSWORD" ]; }; then
+    echo "[ERROR] config_username and config_password must be set together"
     exit 1
 fi
 
@@ -36,7 +45,17 @@ echo "[INFO] Downloading sing-box config"
 TMP_CONFIG="${CONFIG_FILE}.tmp"
 trap 'rm -f "$TMP_CONFIG"' EXIT
 
-if curl -fsSL --retry 3 --retry-delay 2 --retry-connrefused --connect-timeout 10 --max-time 60 "$CONFIG_URL" -o "$TMP_CONFIG"; then
+download_config() {
+    if [ -n "$CONFIG_USERNAME" ]; then
+        curl -fsSL --retry 3 --retry-delay 2 --retry-connrefused --connect-timeout 10 --max-time 60 \
+            --user "$CONFIG_USERNAME:$CONFIG_PASSWORD" "$CONFIG_URL" -o "$TMP_CONFIG"
+    else
+        curl -fsSL --retry 3 --retry-delay 2 --retry-connrefused --connect-timeout 10 --max-time 60 \
+            "$CONFIG_URL" -o "$TMP_CONFIG"
+    fi
+}
+
+if download_config; then
     if sing-box check -c "$TMP_CONFIG"; then
         mv "$TMP_CONFIG" "$CONFIG_FILE"
         echo "[INFO] Downloaded config saved"

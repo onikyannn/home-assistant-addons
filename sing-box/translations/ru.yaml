@@ -2,3 +2,9 @@ configuration:
   config_url:
     name: Конфиг
     description: Ссылка на конфигурацию
+  config_username:
+    name: Логин
+    description: Логин для HTTP Basic Auth (необязательно)
+  config_password:
+    name: Пароль
+    description: Пароль для HTTP Basic Auth (необязательно)
