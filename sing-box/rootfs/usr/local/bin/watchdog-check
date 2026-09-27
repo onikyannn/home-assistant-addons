@@ -1,0 +1,110 @@
+#!/bin/sh
+
+# Return failure only when the tunnel is down and the public network is reachable.
+config_file="${WATCHDOG_CONFIG_FILE:-/data/config/config.json}"
+state_file="${WATCHDOG_STATE_FILE:-/run/sing-box-watchdog-failures}"
+
+clear_failures() {
+    rm -f "$state_file"
+}
+
+peer_data="$(jq -er '
+    def single: if type == "array" then select(length == 1) | .[0] else . end;
+    [.endpoints[]? | select(.type == "wireguard" and .system == true)]
+    | select(length == 1) | .[0]
+    | select(.peers | length == 1)
+    | (.address | single) as $local
+    | (.peers[0].allowed_ips | single) as $allowed
+    | select(($local | type) == "string" and ($allowed | type) == "string")
+    | [$local, $allowed] | @tsv
+' "$config_file" 2>/dev/null)" || {
+    clear_failures
+    echo "[WARN] Watchdog cannot identify one system WireGuard peer; skipping tunnel check" >&2
+    exit 0
+}
+
+IFS='	' read -r local_cidr allowed_cidr <<EOF
+$peer_data
+EOF
+local_ip="${local_cidr%%/*}"
+
+# In this topology the VPS is the first usable address in the peer's subnet.
+peer_ip="$(awk -v cidr="$allowed_cidr" -v local_ip="$local_ip" '
+    function ip_number(ip, octets, count, i, result) {
+        count = split(ip, octets, ".")
+        if (count != 4) return -1
+        result = 0
+        for (i = 1; i <= 4; i++) {
+            if (octets[i] !~ /^[0-9]+$/ || octets[i] + 0 > 255) return -1
+            result = result * 256 + octets[i]
+        }
+        return result
+    }
+    BEGIN {
+        split(cidr, parts, "/")
+        if (length(parts) != 2 || parts[2] !~ /^[0-9]+$/) exit 1
+        prefix = parts[2] + 0
+        if (prefix < 1 || prefix > 30) exit 1
+        address = ip_number(parts[1])
+        local_address = ip_number(local_ip)
+        if (address < 0 || local_address < 0) exit 1
+        block = 2 ^ (32 - prefix)
+        network = int(address / block) * block
+        if (local_address < network || local_address >= network + block) exit 1
+        target = network + 1
+        if (target == local_address) exit 1
+        printf "%d.%d.%d.%d\n", int(target / 16777216) % 256, \
+            int(target / 65536) % 256, int(target / 256) % 256, target % 256
+    }
+')" || {
+    clear_failures
+    echo "[WARN] Watchdog cannot derive the VPS tunnel address from allowed_ips; skipping tunnel check" >&2
+    exit 0
+}
+
+wg_interface="$(ip -o -4 addr show 2>/dev/null | awk -v address="$local_ip" '
+    { split($4, cidr, "/"); if (cidr[1] == address) { print $2; exit } }
+')"
+if [ -n "$wg_interface" ] && ping -I "$wg_interface" -c 1 -W 2 "$peer_ip" >/dev/null 2>&1; then
+    clear_failures
+    exit 0
+fi
+
+internet_up=false
+for public_ip in 1.1.1.1 8.8.8.8; do
+    route="$(ip route get "$public_ip" 2>/dev/null)" || continue
+    route_interface="$(printf '%s\n' "$route" | awk '
+        { for (i = 1; i < NF; i++) if ($i == "dev") { print $(i + 1); exit } }
+    ')"
+    if [ -z "$route_interface" ] || [ "$route_interface" = "$wg_interface" ]; then
+        continue
+    fi
+    if curl --silent --insecure --output /dev/null --noproxy '*' --connect-timeout 1 --max-time 2 \
+        "https://$public_ip/"; then
+        internet_up=true
+        break
+    fi
+done
+
+if [ "$internet_up" = false ]; then
+    clear_failures
+    exit 0
+fi
+
+failures="$(cat "$state_file" 2>/dev/null)" || failures=0
+case "$failures" in
+    ''|*[!0-9]*) failures=0 ;;
+esac
+failures=$((failures + 1))
+if ! printf '%s\n' "$failures" > "${state_file}.$$" || ! mv "${state_file}.$$" "$state_file"; then
+    rm -f "${state_file}.$$"
+    echo "[WARN] Watchdog cannot store failure count; skipping restart" >&2
+    exit 0
+fi
+
+if [ "$failures" -ge 3 ]; then
+    echo "[WARN] WireGuard peer $peer_ip unreachable with Internet available ($failures checks)" >&2
+    exit 1
+fi
+
+exit 0

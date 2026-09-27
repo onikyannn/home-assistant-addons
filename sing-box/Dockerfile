@@ -2,10 +2,11 @@ FROM ghcr.io/home-assistant/base:3.23
 
 RUN apk add --no-cache \
     curl \
+    iproute2 \
     jq \
+    socat \
     tar
 
-# Home Assistant displays config.yaml's version, so use it for the binary too.
 COPY config.yaml /tmp/addon-config.yaml
 
 ARG TARGETARCH
@@ -30,5 +31,5 @@ RUN set -eux && \
 
 COPY rootfs /
 
-RUN chmod +x /etc/services.d/sing-box/run && \
-    chmod +x /etc/services.d/sing-box/finish
+RUN chmod +x /etc/services.d/sing-box/run /etc/services.d/sing-box/finish \
+    /etc/services.d/watchdog/run /usr/local/bin/watchdog-check /usr/local/bin/watchdog-http

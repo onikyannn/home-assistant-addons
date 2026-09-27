@@ -1,5 +1,5 @@
 name: sing-box
-version: "1.14.2"
+version: "1.14.2-1"
 slug: sing-box
 description: sing-box proxy service for Home Assistant
 url: https://github.com/onikyannn/home-assistant-sign-box/tree/master/sing-box
@@ -12,6 +12,7 @@ startup: services
 boot: auto
 host_network: true
 init: false
+watchdog: http://[HOST]:18787/health
 
 panel_icon: mdi:shield-outline
 
@@ -20,6 +21,7 @@ devices:
 
 privileged:
   - NET_ADMIN
+  - NET_RAW
 
 options:
   config_url: null
