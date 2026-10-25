@@ -1,5 +1,5 @@
 name: sing-box
-version: "1.14.2-1"
+version: "1.14.3-1"
 slug: sing-box
 description: sing-box proxy service for Home Assistant
 url: https://github.com/onikyannn/home-assistant-sign-box/tree/master/sing-box
