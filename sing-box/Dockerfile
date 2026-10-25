@@ -4,6 +4,7 @@ RUN apk add --no-cache \
     curl \
     iproute2 \
     jq \
+    python3 \
     socat \
     tar
 
@@ -14,6 +15,7 @@ ARG TARGETVARIANT
 
 RUN set -eux && \
     singbox_version="$(awk -F: '$1 == "version" { value=$2; sub(/^[[:space:]]*/, "", value); sub(/[[:space:]]*#.*/, "", value); gsub(/^"|"$/, "", value); print value; exit }' /tmp/addon-config.yaml)" && \
+    singbox_version="$(printf '%s' "$singbox_version" | sed -E 's/-[0-9]+$//')" && \
     if [ -z "$singbox_version" ]; then echo "Unable to determine sing-box version from config.yaml" >&2; exit 1; fi && \
     arch="${TARGETARCH:-$(uname -m)}${TARGETVARIANT:-}" && \
     case "$arch" in \
@@ -32,4 +34,5 @@ RUN set -eux && \
 COPY rootfs /
 
 RUN chmod +x /etc/services.d/sing-box/run /etc/services.d/sing-box/finish \
+    /etc/services.d/controller/run \
     /etc/services.d/watchdog/run /usr/local/bin/watchdog-check /usr/local/bin/watchdog-http

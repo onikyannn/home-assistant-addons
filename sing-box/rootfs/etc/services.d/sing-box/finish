@@ -1,3 +1,4 @@
 #!/usr/bin/with-contenv sh
 
+rm -f "${RUNTIME_DIR:-/run/sing-box}/ready.json"
 echo "[INFO] sing-box stopped"

@@ -4,6 +4,12 @@ sing-box proxy service for Home Assistant.
 
 The add-on downloads a remote `config.json`, validates it with `sing-box check`, and stores it under `/data/config/config.json`. Runtime state is stored under `/data/state`.
 
+A single recovery controller checks outbound availability, switches the selector,
+and restores WireGuard when necessary. The Supervisor watchdog only checks the
+controller's heartbeat. Probe URLs, switching tolerance, interval and
+recovery wait are available in the add-on's Configuration form.
+See [recovery behavior and requirements](./DOCS.md#automatic-recovery).
+
 ## Configuration
 
 ```yaml

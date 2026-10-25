@@ -1,5 +1,5 @@
 name: sing-box
-version: "1.14.3-1"
+version: "1.14.3-3"
 slug: sing-box
 description: sing-box proxy service for Home Assistant
 url: https://github.com/onikyannn/home-assistant-sign-box/tree/master/sing-box
@@ -25,8 +25,21 @@ privileged:
 
 options:
   config_url: null
+  healthcheck_url: https://www.gstatic.com/generate_204
+  internet_check_urls:
+    - https://1.1.1.1/
+    - https://8.8.8.8/
+  healthcheck_tolerance: 50
+  healthcheck_interval: 30
+  recovery_grace: 90
 
 schema:
   config_url: url
   config_username: str?
   config_password: password?
+  healthcheck_url: match(^https://.+$)
+  internet_check_urls:
+    - url
+  healthcheck_tolerance: int(0,10000)
+  healthcheck_interval: int(5,3600)
+  recovery_grace: int(0,3600)

@@ -8,3 +8,18 @@ configuration:
   config_password:
     name: Password
     description: Password for HTTP Basic Authentication (optional)
+  healthcheck_url:
+    name: Latency check URL
+    description: HTTPS URL used to measure each outbound. Prefer a fast response without content (HTTP 204).
+  internet_check_urls:
+    name: Direct Internet check URLs
+    description: Checked outside WireGuard before tunnel recovery. One responding address is sufficient; provide at least one HTTP or HTTPS URL.
+  healthcheck_tolerance:
+    name: Switching tolerance (ms)
+    description: Required latency advantage over the current outbound. Failover from an unavailable outbound does not depend on this threshold.
+  healthcheck_interval:
+    name: INTERVAL — check interval (s)
+    description: Outbound and tunnel check period, from 5 to 3600 seconds. Long cycles never overlap; heartbeats continue independently of the interval.
+  recovery_grace:
+    name: WireGuard recovery grace (s)
+    description: Time allowed for WireGuard recovery after startup or selection changes, from 0 to 3600 seconds. Three confirmed tunnel failures are then required.
